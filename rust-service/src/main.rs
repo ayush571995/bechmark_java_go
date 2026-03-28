@@ -63,7 +63,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let metrics_port = std::env::var("METRICS_PORT").unwrap_or_else(|_| "8082".into());
 
     // ── Redis connection pool ────────────────────────────────────────────────
-    let cfg  = Config::from_url(format!("redis://{}:{}", redis_host, redis_port));
+    let mut cfg = Config::from_url(format!("redis://{}:{}", redis_host, redis_port));
+    cfg.pool = Some(deadpool_redis::PoolConfig::new(200));
     let pool = Arc::new(cfg.create_pool(Some(Runtime::Tokio1))?);
     // verify connection
     let _ = pool.get().await.expect("Cannot connect to Redis");

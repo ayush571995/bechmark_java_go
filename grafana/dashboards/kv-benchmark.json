@@ -2,7 +2,7 @@
   "__inputs": [],
   "__requires": [],
   "annotations": { "list": [] },
-  "description": "Java gRPC (Redis) vs Go gRPC (MySQL) – side-by-side benchmark",
+  "description": "Java 24 vs Go vs Rust gRPC KV benchmark",
   "editable": true,
   "fiscalYearStartMonth": 0,
   "graphTooltip": 1,
@@ -15,7 +15,7 @@
 
     {
       "id": 1,
-      "title": "RPS – Java vs Go",
+      "title": "RPS – Java vs Go vs Rust",
       "type": "timeseries",
       "gridPos": { "h": 8, "w": 12, "x": 0, "y": 1 },
       "datasource": "Prometheus",
@@ -25,13 +25,16 @@
           { "matcher": { "id": "byName", "options": "Java" },
             "properties": [{ "id": "color", "value": { "fixedColor": "#F2CC0C", "mode": "fixed" } }] },
           { "matcher": { "id": "byName", "options": "Go" },
-            "properties": [{ "id": "color", "value": { "fixedColor": "#73BF69", "mode": "fixed" } }] }
+            "properties": [{ "id": "color", "value": { "fixedColor": "#73BF69", "mode": "fixed" } }] },
+          { "matcher": { "id": "byName", "options": "Rust" },
+            "properties": [{ "id": "color", "value": { "fixedColor": "#FF7043", "mode": "fixed" } }] }
         ]
       },
       "options": { "legend": { "displayMode": "list", "placement": "bottom" }, "tooltip": { "mode": "multi" } },
       "targets": [
-        { "expr": "sum(rate(grpc_requests_total{service=\"java\"}[30s]))", "legendFormat": "Java", "refId": "A" },
-        { "expr": "sum(rate(grpc_requests_total{service=\"go\"}[30s]))",   "legendFormat": "Go",   "refId": "B" }
+        { "expr": "sum(rate(grpc_requests_total{service=\"java\"}[30s]))",  "legendFormat": "Java", "refId": "A" },
+        { "expr": "sum(rate(grpc_requests_total{service=\"go\"}[30s]))",    "legendFormat": "Go",   "refId": "B" },
+        { "expr": "sum(rate(grpc_requests_total{service=\"rust\"}[30s]))",  "legendFormat": "Rust", "refId": "C" }
       ]
     },
 
@@ -47,10 +50,12 @@
       },
       "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "orientation": "auto", "textMode": "auto", "colorMode": "background" },
       "targets": [
-        { "expr": "sum(grpc_requests_total{service=\"java\",status=\"ok\"})", "legendFormat": "Java OK",    "refId": "A" },
-        { "expr": "sum(grpc_requests_total{service=\"java\",status=\"error\"})", "legendFormat": "Java ERR", "refId": "B" },
-        { "expr": "sum(grpc_requests_total{service=\"go\",status=\"ok\"})",   "legendFormat": "Go OK",      "refId": "C" },
-        { "expr": "sum(grpc_requests_total{service=\"go\",status=\"error\"})",   "legendFormat": "Go ERR",  "refId": "D" }
+        { "expr": "sum(grpc_requests_total{service=\"java\",status=\"ok\"})",   "legendFormat": "Java OK",   "refId": "A" },
+        { "expr": "sum(grpc_requests_total{service=\"java\",status=\"error\"})", "legendFormat": "Java ERR",  "refId": "B" },
+        { "expr": "sum(grpc_requests_total{service=\"go\",status=\"ok\"})",     "legendFormat": "Go OK",     "refId": "C" },
+        { "expr": "sum(grpc_requests_total{service=\"go\",status=\"error\"})",  "legendFormat": "Go ERR",    "refId": "D" },
+        { "expr": "sum(grpc_requests_total{service=\"rust\",status=\"ok\"})",   "legendFormat": "Rust OK",   "refId": "E" },
+        { "expr": "sum(grpc_requests_total{service=\"rust\",status=\"error\"})", "legendFormat": "Rust ERR", "refId": "F" }
       ]
     },
 
@@ -61,7 +66,7 @@
       "id": 3,
       "title": "Java – Latency Percentiles",
       "type": "timeseries",
-      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 10 },
+      "gridPos": { "h": 8, "w": 8, "x": 0, "y": 10 },
       "datasource": "Prometheus",
       "fieldConfig": { "defaults": { "unit": "s", "custom": { "lineWidth": 2 } }, "overrides": [] },
       "options": { "legend": { "displayMode": "list", "placement": "bottom" }, "tooltip": { "mode": "multi" } },
@@ -76,7 +81,7 @@
       "id": 4,
       "title": "Go – Latency Percentiles",
       "type": "timeseries",
-      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 10 },
+      "gridPos": { "h": 8, "w": 8, "x": 8, "y": 10 },
       "datasource": "Prometheus",
       "fieldConfig": { "defaults": { "unit": "s", "custom": { "lineWidth": 2 } }, "overrides": [] },
       "options": { "legend": { "displayMode": "list", "placement": "bottom" }, "tooltip": { "mode": "multi" } },
@@ -88,10 +93,25 @@
     },
 
     {
-      "id": 5,
-      "title": "p95 Latency – Java vs Go (comparison)",
+      "id": 14,
+      "title": "Rust – Latency Percentiles",
       "type": "timeseries",
-      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 18 },
+      "gridPos": { "h": 8, "w": 8, "x": 16, "y": 10 },
+      "datasource": "Prometheus",
+      "fieldConfig": { "defaults": { "unit": "s", "custom": { "lineWidth": 2 } }, "overrides": [] },
+      "options": { "legend": { "displayMode": "list", "placement": "bottom" }, "tooltip": { "mode": "multi" } },
+      "targets": [
+        { "expr": "histogram_quantile(0.50, sum(rate(grpc_request_duration_seconds_bucket{service=\"rust\"}[30s])) by (le))", "legendFormat": "p50", "refId": "A" },
+        { "expr": "histogram_quantile(0.95, sum(rate(grpc_request_duration_seconds_bucket{service=\"rust\"}[30s])) by (le))", "legendFormat": "p95", "refId": "B" },
+        { "expr": "histogram_quantile(0.99, sum(rate(grpc_request_duration_seconds_bucket{service=\"rust\"}[30s])) by (le))", "legendFormat": "p99", "refId": "C" }
+      ]
+    },
+
+    {
+      "id": 5,
+      "title": "p95 Latency – All Services",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 18 },
       "datasource": "Prometheus",
       "fieldConfig": {
         "defaults": { "unit": "s", "custom": { "lineWidth": 2 } },
@@ -99,13 +119,41 @@
           { "matcher": { "id": "byName", "options": "Java p95" },
             "properties": [{ "id": "color", "value": { "fixedColor": "#F2CC0C", "mode": "fixed" } }] },
           { "matcher": { "id": "byName", "options": "Go p95" },
-            "properties": [{ "id": "color", "value": { "fixedColor": "#73BF69", "mode": "fixed" } }] }
+            "properties": [{ "id": "color", "value": { "fixedColor": "#73BF69", "mode": "fixed" } }] },
+          { "matcher": { "id": "byName", "options": "Rust p95" },
+            "properties": [{ "id": "color", "value": { "fixedColor": "#FF7043", "mode": "fixed" } }] }
         ]
       },
       "options": { "legend": { "displayMode": "list", "placement": "bottom" }, "tooltip": { "mode": "multi" } },
       "targets": [
         { "expr": "histogram_quantile(0.95, sum(rate(grpc_request_duration_seconds_bucket{service=\"java\"}[30s])) by (le))", "legendFormat": "Java p95", "refId": "A" },
-        { "expr": "histogram_quantile(0.95, sum(rate(grpc_request_duration_seconds_bucket{service=\"go\"}[30s])) by (le))",   "legendFormat": "Go p95",   "refId": "B" }
+        { "expr": "histogram_quantile(0.95, sum(rate(grpc_request_duration_seconds_bucket{service=\"go\"}[30s])) by (le))",   "legendFormat": "Go p95",   "refId": "B" },
+        { "expr": "histogram_quantile(0.95, sum(rate(grpc_request_duration_seconds_bucket{service=\"rust\"}[30s])) by (le))","legendFormat": "Rust p95", "refId": "C" }
+      ]
+    },
+
+    {
+      "id": 15,
+      "title": "p99 Latency – All Services",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 18 },
+      "datasource": "Prometheus",
+      "fieldConfig": {
+        "defaults": { "unit": "s", "custom": { "lineWidth": 2 } },
+        "overrides": [
+          { "matcher": { "id": "byName", "options": "Java p99" },
+            "properties": [{ "id": "color", "value": { "fixedColor": "#F2CC0C", "mode": "fixed" } }] },
+          { "matcher": { "id": "byName", "options": "Go p99" },
+            "properties": [{ "id": "color", "value": { "fixedColor": "#73BF69", "mode": "fixed" } }] },
+          { "matcher": { "id": "byName", "options": "Rust p99" },
+            "properties": [{ "id": "color", "value": { "fixedColor": "#FF7043", "mode": "fixed" } }] }
+        ]
+      },
+      "options": { "legend": { "displayMode": "list", "placement": "bottom" }, "tooltip": { "mode": "multi" } },
+      "targets": [
+        { "expr": "histogram_quantile(0.99, sum(rate(grpc_request_duration_seconds_bucket{service=\"java\"}[30s])) by (le))", "legendFormat": "Java p99", "refId": "A" },
+        { "expr": "histogram_quantile(0.99, sum(rate(grpc_request_duration_seconds_bucket{service=\"go\"}[30s])) by (le))",   "legendFormat": "Go p99",   "refId": "B" },
+        { "expr": "histogram_quantile(0.99, sum(rate(grpc_request_duration_seconds_bucket{service=\"rust\"}[30s])) by (le))","legendFormat": "Rust p99", "refId": "C" }
       ]
     },
 
@@ -114,21 +162,29 @@
 
     {
       "id": 6,
-      "title": "Error Rate – Java vs Go",
+      "title": "Error Rate – All Services",
       "type": "timeseries",
       "gridPos": { "h": 7, "w": 24, "x": 0, "y": 27 },
       "datasource": "Prometheus",
-      "fieldConfig": { "defaults": { "unit": "percentunit", "custom": { "lineWidth": 2 } }, "overrides": [] },
+      "fieldConfig": {
+        "defaults": { "unit": "percentunit", "custom": { "lineWidth": 2 } },
+        "overrides": [
+          { "matcher": { "id": "byName", "options": "Java error %" },
+            "properties": [{ "id": "color", "value": { "fixedColor": "#F2CC0C", "mode": "fixed" } }] },
+          { "matcher": { "id": "byName", "options": "Go error %" },
+            "properties": [{ "id": "color", "value": { "fixedColor": "#73BF69", "mode": "fixed" } }] },
+          { "matcher": { "id": "byName", "options": "Rust error %" },
+            "properties": [{ "id": "color", "value": { "fixedColor": "#FF7043", "mode": "fixed" } }] }
+        ]
+      },
       "options": { "legend": { "displayMode": "list", "placement": "bottom" }, "tooltip": { "mode": "multi" } },
       "targets": [
-        {
-          "expr": "sum(rate(grpc_requests_total{service=\"java\",status=\"error\"}[30s])) / sum(rate(grpc_requests_total{service=\"java\"}[30s]))",
-          "legendFormat": "Java error %", "refId": "A"
-        },
-        {
-          "expr": "sum(rate(grpc_requests_total{service=\"go\",status=\"error\"}[30s])) / sum(rate(grpc_requests_total{service=\"go\"}[30s]))",
-          "legendFormat": "Go error %", "refId": "B"
-        }
+        { "expr": "sum(rate(grpc_requests_total{service=\"java\",status=\"error\"}[30s])) / sum(rate(grpc_requests_total{service=\"java\"}[30s]))",
+          "legendFormat": "Java error %", "refId": "A" },
+        { "expr": "sum(rate(grpc_requests_total{service=\"go\",status=\"error\"}[30s])) / sum(rate(grpc_requests_total{service=\"go\"}[30s]))",
+          "legendFormat": "Go error %", "refId": "B" },
+        { "expr": "sum(rate(grpc_requests_total{service=\"rust\",status=\"error\"}[30s])) / sum(rate(grpc_requests_total{service=\"rust\"}[30s]))",
+          "legendFormat": "Rust error %", "refId": "C" }
       ]
     },
 
@@ -180,7 +236,7 @@
 
     {
       "id": 10,
-      "title": "Go Heap Alloc",
+      "title": "Go Heap Memory",
       "type": "timeseries",
       "gridPos": { "h": 7, "w": 12, "x": 12, "y": 43 },
       "datasource": "Prometheus",
@@ -193,23 +249,55 @@
     },
 
     { "collapsed": false, "gridPos": { "h": 1, "w": 24, "x": 0, "y": 51 },
-      "id": 105, "title": "🖥 CPU — Cores in Use (max 8, same scale as docker stats)", "type": "row" },
+      "id": 106, "title": "🦀 Rust Runtime", "type": "row" },
 
     {
-      "id": 11,
-      "title": "Java – CPU Cores in Use",
+      "id": 16,
+      "title": "Rust – Process Memory",
       "type": "timeseries",
       "gridPos": { "h": 7, "w": 12, "x": 0, "y": 52 },
       "datasource": "Prometheus",
+      "fieldConfig": { "defaults": { "unit": "bytes", "custom": { "lineWidth": 2 } }, "overrides": [] },
+      "options": { "legend": { "displayMode": "list", "placement": "bottom" } },
+      "targets": [
+        { "expr": "process_resident_memory_bytes{job=\"rust-service\"}", "legendFormat": "RSS (Resident)", "refId": "A" },
+        { "expr": "process_virtual_memory_bytes{job=\"rust-service\"}",  "legendFormat": "Virtual",        "refId": "B" }
+      ]
+    },
+
+    {
+      "id": 17,
+      "title": "Memory – Go vs Rust (RSS)",
+      "type": "timeseries",
+      "gridPos": { "h": 7, "w": 12, "x": 12, "y": 52 },
+      "datasource": "Prometheus",
       "fieldConfig": {
-        "defaults": {
-          "unit": "short",
-          "decimals": 2,
-          "custom": { "lineWidth": 2 },
-          "min": 0,
-          "max": 8,
-          "displayName": "Cores"
-        },
+        "defaults": { "unit": "bytes", "custom": { "lineWidth": 2 } },
+        "overrides": [
+          { "matcher": { "id": "byName", "options": "Go RSS" },
+            "properties": [{ "id": "color", "value": { "fixedColor": "#73BF69", "mode": "fixed" } }] },
+          { "matcher": { "id": "byName", "options": "Rust RSS" },
+            "properties": [{ "id": "color", "value": { "fixedColor": "#FF7043", "mode": "fixed" } }] }
+        ]
+      },
+      "options": { "legend": { "displayMode": "list", "placement": "bottom" } },
+      "targets": [
+        { "expr": "process_resident_memory_bytes{job=\"go-service\"}",   "legendFormat": "Go RSS",   "refId": "A" },
+        { "expr": "process_resident_memory_bytes{job=\"rust-service\"}", "legendFormat": "Rust RSS", "refId": "B" }
+      ]
+    },
+
+    { "collapsed": false, "gridPos": { "h": 1, "w": 24, "x": 0, "y": 60 },
+      "id": 105, "title": "🖥 CPU – Cores in Use", "type": "row" },
+
+    {
+      "id": 11,
+      "title": "Java – CPU Cores",
+      "type": "timeseries",
+      "gridPos": { "h": 7, "w": 8, "x": 0, "y": 61 },
+      "datasource": "Prometheus",
+      "fieldConfig": {
+        "defaults": { "unit": "short", "decimals": 2, "custom": { "lineWidth": 2 }, "min": 0, "max": 8, "displayName": "Cores" },
         "overrides": [
           { "matcher": { "id": "byName", "options": "Cores" },
             "properties": [{ "id": "color", "value": { "fixedColor": "#F2CC0C", "mode": "fixed" } }] }
@@ -217,29 +305,18 @@
       },
       "options": { "legend": { "displayMode": "list", "placement": "bottom" }, "tooltip": { "mode": "multi" } },
       "targets": [
-        {
-          "expr": "rate(process_cpu_seconds_total{job=\"java-service\"}[30s])",
-          "legendFormat": "Cores",
-          "refId": "A"
-        }
+        { "expr": "rate(process_cpu_seconds_total{job=\"java-service\"}[30s])", "legendFormat": "Cores", "refId": "A" }
       ]
     },
 
     {
       "id": 12,
-      "title": "Go – CPU Cores in Use",
+      "title": "Go – CPU Cores",
       "type": "timeseries",
-      "gridPos": { "h": 7, "w": 12, "x": 12, "y": 52 },
+      "gridPos": { "h": 7, "w": 8, "x": 8, "y": 61 },
       "datasource": "Prometheus",
       "fieldConfig": {
-        "defaults": {
-          "unit": "short",
-          "decimals": 2,
-          "custom": { "lineWidth": 2 },
-          "min": 0,
-          "max": 8,
-          "displayName": "Cores"
-        },
+        "defaults": { "unit": "short", "decimals": 2, "custom": { "lineWidth": 2 }, "min": 0, "max": 8, "displayName": "Cores" },
         "overrides": [
           { "matcher": { "id": "byName", "options": "Cores" },
             "properties": [{ "id": "color", "value": { "fixedColor": "#73BF69", "mode": "fixed" } }] }
@@ -247,47 +324,51 @@
       },
       "options": { "legend": { "displayMode": "list", "placement": "bottom" }, "tooltip": { "mode": "multi" } },
       "targets": [
-        {
-          "expr": "rate(process_cpu_seconds_total{job=\"go-service\"}[30s])",
-          "legendFormat": "Cores",
-          "refId": "A"
-        }
+        { "expr": "rate(process_cpu_seconds_total{job=\"go-service\"}[30s])", "legendFormat": "Cores", "refId": "A" }
+      ]
+    },
+
+    {
+      "id": 18,
+      "title": "Rust – CPU Cores",
+      "type": "timeseries",
+      "gridPos": { "h": 7, "w": 8, "x": 16, "y": 61 },
+      "datasource": "Prometheus",
+      "fieldConfig": {
+        "defaults": { "unit": "short", "decimals": 2, "custom": { "lineWidth": 2 }, "min": 0, "max": 8, "displayName": "Cores" },
+        "overrides": [
+          { "matcher": { "id": "byName", "options": "Cores" },
+            "properties": [{ "id": "color", "value": { "fixedColor": "#FF7043", "mode": "fixed" } }] }
+        ]
+      },
+      "options": { "legend": { "displayMode": "list", "placement": "bottom" }, "tooltip": { "mode": "multi" } },
+      "targets": [
+        { "expr": "rate(process_cpu_seconds_total{job=\"rust-service\"}[30s])", "legendFormat": "Cores", "refId": "A" }
       ]
     },
 
     {
       "id": 13,
-      "title": "CPU Cores in Use – Java vs Go  (docker stats shows this × 100%)",
+      "title": "CPU Cores – Java vs Go vs Rust",
       "type": "timeseries",
-      "gridPos": { "h": 7, "w": 24, "x": 0, "y": 59 },
+      "gridPos": { "h": 7, "w": 24, "x": 0, "y": 68 },
       "datasource": "Prometheus",
       "fieldConfig": {
-        "defaults": {
-          "unit": "short",
-          "decimals": 2,
-          "custom": { "lineWidth": 2 },
-          "min": 0,
-          "max": 8
-        },
+        "defaults": { "unit": "short", "decimals": 2, "custom": { "lineWidth": 2 }, "min": 0, "max": 8 },
         "overrides": [
           { "matcher": { "id": "byName", "options": "Java" },
             "properties": [{ "id": "color", "value": { "fixedColor": "#F2CC0C", "mode": "fixed" } }] },
           { "matcher": { "id": "byName", "options": "Go" },
-            "properties": [{ "id": "color", "value": { "fixedColor": "#73BF69", "mode": "fixed" } }] }
+            "properties": [{ "id": "color", "value": { "fixedColor": "#73BF69", "mode": "fixed" } }] },
+          { "matcher": { "id": "byName", "options": "Rust" },
+            "properties": [{ "id": "color", "value": { "fixedColor": "#FF7043", "mode": "fixed" } }] }
         ]
       },
       "options": { "legend": { "displayMode": "list", "placement": "bottom" }, "tooltip": { "mode": "multi" } },
       "targets": [
-        {
-          "expr": "rate(process_cpu_seconds_total{job=\"java-service\"}[30s])",
-          "legendFormat": "Java",
-          "refId": "A"
-        },
-        {
-          "expr": "rate(process_cpu_seconds_total{job=\"go-service\"}[30s])",
-          "legendFormat": "Go",
-          "refId": "B"
-        }
+        { "expr": "rate(process_cpu_seconds_total{job=\"java-service\"}[30s])", "legendFormat": "Java", "refId": "A" },
+        { "expr": "rate(process_cpu_seconds_total{job=\"go-service\"}[30s])",   "legendFormat": "Go",   "refId": "B" },
+        { "expr": "rate(process_cpu_seconds_total{job=\"rust-service\"}[30s])","legendFormat": "Rust", "refId": "C" }
       ]
     }
 
@@ -295,12 +376,12 @@
   "refresh": "5s",
   "schemaVersion": 38,
   "style": "dark",
-  "tags": ["grpc", "benchmark", "java", "go"],
+  "tags": ["grpc", "benchmark", "java", "go", "rust"],
   "templating": { "list": [] },
-  "time": { "from": "now-5m", "to": "now" },
+  "time": { "from": "now-10m", "to": "now" },
   "timepicker": {},
   "timezone": "browser",
-  "title": "Java gRPC vs Go gRPC – KV Benchmark",
+  "title": "Java 24 vs Go vs Rust – KV Benchmark",
   "uid": "kv-benchmark-v1",
-  "version": 1
+  "version": 2
 }
