@@ -7,6 +7,8 @@ import io.prometheus.client.hotspot.DefaultExports;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.concurrent.Executors;
+
 public class Main {
 
     private static final Logger log = LoggerFactory.getLogger(Main.class);
@@ -27,13 +29,18 @@ public class Main {
         HTTPServer metricsServer = new HTTPServer(metricsPort);
         log.info("Prometheus metrics listening on :{}/metrics", metricsPort);
 
-        // Default gRPC executor: fixed thread pool (max 4, cores*2 = 16 on 8 cores)
+        // Virtual thread executor (Java 21):
+        // Each incoming gRPC request gets its own virtual thread.
+        // When Jedis.get() blocks on the network, the JVM unmounts the virtual
+        // thread from the carrier OS thread — the OS thread runs other virtual
+        // threads instead of sitting idle. No thread-count ceiling.
         Server server = ServerBuilder.forPort(grpcPort)
+                .executor(Executors.newVirtualThreadPerTaskExecutor())
                 .addService(new KVServiceImpl(store))
                 .build()
                 .start();
 
-        log.info("Java gRPC server started on :{} (default executor)", grpcPort);
+        log.info("Java gRPC server started on :{} (virtual-thread executor)", grpcPort);
 
         Runtime.getRuntime().addShutdownHook(new Thread(() -> {
             log.info("Shutting down...");

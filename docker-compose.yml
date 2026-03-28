@@ -31,6 +31,25 @@ services:
       - PYTHONUNBUFFERED=1
       - REDIS_HOST=redis-java
 
+  # ── Redis for Rust service ────────────────────────────────────────────────
+
+  redis-rust:
+    <<: [*restart, *redis-base]
+    ports:
+      - "6381:6379"
+
+  redis-init-rust:
+    image: python:3.11-slim
+    depends_on:
+      redis-rust:
+        condition: service_healthy
+    volumes:
+      - ./redis-init/seed.py:/seed.py:ro
+    entrypoint: ["sh", "-c", "pip install redis --quiet && python /seed.py"]
+    environment:
+      - PYTHONUNBUFFERED=1
+      - REDIS_HOST=redis-rust
+
   # ── Redis for Go service ───────────────────────────────────────────────────
 
   redis-go:
@@ -118,11 +137,47 @@ services:
       timeout: 5s
       retries: 10
 
+  # ── Rust gRPC service ─────────────────────────────────────────────────────
+
+  rust-service:
+    <<: *restart
+    build:
+      context: .
+      dockerfile: rust-service/Dockerfile
+    ports:
+      - "50053:50053"
+      - "8082:8082"
+    environment:
+      REDIS_HOST: redis-rust
+      REDIS_PORT: "6379"
+      GRPC_PORT: "50053"
+      METRICS_PORT: "8082"
+    deploy:
+      resources:
+        limits:
+          cpus: "8.0"
+          memory: 20G
+        reservations:
+          cpus: "4.0"
+          memory: 16G
+    depends_on:
+      redis-rust:
+        condition: service_healthy
+      redis-init-rust:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8082/metrics | grep -q grpc_requests || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
   # ── k6 load tests ─────────────────────────────────────────────────────────
   #
   #   Run both simultaneously:  make test
   #   Run Java only:            make test-java
   #   Run Go only:              make test-go
+  #   Run Rust only:            make test-rust
+  #   Run Go + Rust:            make test-go-rust
 
   k6-java:
     image: grafana/k6:latest
@@ -150,6 +205,20 @@ services:
     command: run --out experimental-prometheus-rw /scripts/go.js
     depends_on:
       - go-service
+      - prometheus
+
+  k6-rust:
+    image: grafana/k6:latest
+    profiles: ["rust", "benchmark"]
+    volumes:
+      - ./k6:/scripts
+      - ./proto:/proto
+    environment:
+      K6_PROMETHEUS_RW_SERVER_URL: http://prometheus:9090/api/v1/write
+      K6_PROMETHEUS_RW_TREND_AS_NATIVE_HISTOGRAM: "true"
+    command: run --out experimental-prometheus-rw /scripts/rust.js
+    depends_on:
+      - rust-service
       - prometheus
 
   # ── Prometheus ─────────────────────────────────────────────────────────────

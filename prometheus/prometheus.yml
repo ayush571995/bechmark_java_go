@@ -12,3 +12,8 @@ scrape_configs:
     static_configs:
       - targets: ["go-service:8081"]
     metrics_path: /metrics
+
+  - job_name: rust-service
+    static_configs:
+      - targets: ["rust-service:8082"]
+    metrics_path: /metrics

@@ -36,24 +36,25 @@ public class KVServiceImpl extends KeyValueServiceGrpc.KeyValueServiceImplBase {
     @Override
     public void get(GetRequest request, StreamObserver<GetResponse> out) {
         Histogram.Timer timer = LATENCY.labels("java", "Get").startTimer();
-
-        // Fire async Redis call — gRPC thread returns immediately.
-        // The Lettuce Netty event-loop thread completes the gRPC response
-        // when Redis replies, with no OS thread held during the wait.
-        store.getAsync(request.getKey()).whenComplete((raw, ex) -> {
-            timer.observeDuration();
-            if (ex != null) {
-                log.error("key={} error={}", request.getKey(), ex.getMessage());
-                REQUESTS.labels("java", "Get", "error").inc();
-                out.onError(Status.INTERNAL
-                        .withDescription(ex.getMessage())
-                        .asRuntimeException());
-                return;
-            }
+        try {
+            // Blocking call — fine with virtual threads.
+            // The JVM unmounts this virtual thread from the carrier OS thread
+            // during the Jedis network wait, keeping the OS thread fully busy.
+            String raw = store.get(request.getKey());
             String value = (raw != null) ? raw : "{}";
+
             REQUESTS.labels("java", "Get", raw != null ? "ok" : "not_found").inc();
             out.onNext(GetResponse.newBuilder().setValue(value).build());
             out.onCompleted();
-        });
+
+        } catch (Exception e) {
+            log.error("key={} error={}", request.getKey(), e.getMessage());
+            REQUESTS.labels("java", "Get", "error").inc();
+            out.onError(Status.INTERNAL
+                    .withDescription(e.getMessage())
+                    .asRuntimeException());
+        } finally {
+            timer.observeDuration();
+        }
     }
 }

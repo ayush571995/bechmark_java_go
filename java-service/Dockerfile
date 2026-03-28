@@ -1,5 +1,5 @@
 # Build stage – compile + generate proto
-FROM maven:3.9-eclipse-temurin-21 AS builder
+FROM maven:3.9-eclipse-temurin-24 AS builder
 WORKDIR /build
 
 # Cache dependencies first
@@ -16,7 +16,7 @@ RUN mvn package -DskipTests -q
 
 # ─────────────────────────────────────────────────────────
 # Runtime stage
-FROM eclipse-temurin:21-jre-jammy
+FROM eclipse-temurin:24-jre-noble
 WORKDIR /app
 COPY --from=builder /build/target/java-grpc-service-1.0.0.jar app.jar
 
