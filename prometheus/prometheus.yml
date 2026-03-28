@@ -1,0 +1,14 @@
+global:
+  scrape_interval: 5s
+  evaluation_interval: 5s
+
+scrape_configs:
+  - job_name: java-service
+    static_configs:
+      - targets: ["java-service:8080"]
+    metrics_path: /metrics
+
+  - job_name: go-service
+    static_configs:
+      - targets: ["go-service:8081"]
+    metrics_path: /metrics

@@ -1,0 +1,20 @@
+syntax = "proto3";
+
+package kvbenchmark;
+
+option java_package = "com.benchmark.proto";
+option java_outer_classname = "KVProto";
+option java_multiple_files = true;
+option go_package = "github.com/benchmark/go-service/proto";
+
+service KeyValueService {
+  rpc Get(GetRequest) returns (GetResponse);
+}
+
+message GetRequest {
+  string key = 1;
+}
+
+message GetResponse {
+  string value = 1;
+}

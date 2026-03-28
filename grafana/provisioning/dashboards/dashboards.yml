@@ -1,0 +1,10 @@
+apiVersion: 1
+
+providers:
+  - name: KV Benchmark
+    folder: KV Benchmark
+    type: file
+    disableDeletion: false
+    updateIntervalSeconds: 10
+    options:
+      path: /var/lib/grafana/dashboards

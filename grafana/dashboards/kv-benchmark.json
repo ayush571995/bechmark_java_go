@@ -1,0 +1,306 @@
+{
+  "__inputs": [],
+  "__requires": [],
+  "annotations": { "list": [] },
+  "description": "Java gRPC (Redis) vs Go gRPC (MySQL) – side-by-side benchmark",
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 1,
+  "id": null,
+  "links": [],
+  "panels": [
+
+    { "collapsed": false, "gridPos": { "h": 1, "w": 24, "x": 0, "y": 0 },
+      "id": 100, "title": "⚡ Request Rate", "type": "row" },
+
+    {
+      "id": 1,
+      "title": "RPS – Java vs Go",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 1 },
+      "datasource": "Prometheus",
+      "fieldConfig": {
+        "defaults": { "unit": "reqps", "custom": { "lineWidth": 2 } },
+        "overrides": [
+          { "matcher": { "id": "byName", "options": "Java" },
+            "properties": [{ "id": "color", "value": { "fixedColor": "#F2CC0C", "mode": "fixed" } }] },
+          { "matcher": { "id": "byName", "options": "Go" },
+            "properties": [{ "id": "color", "value": { "fixedColor": "#73BF69", "mode": "fixed" } }] }
+        ]
+      },
+      "options": { "legend": { "displayMode": "list", "placement": "bottom" }, "tooltip": { "mode": "multi" } },
+      "targets": [
+        { "expr": "sum(rate(grpc_requests_total{service=\"java\"}[30s]))", "legendFormat": "Java", "refId": "A" },
+        { "expr": "sum(rate(grpc_requests_total{service=\"go\"}[30s]))",   "legendFormat": "Go",   "refId": "B" }
+      ]
+    },
+
+    {
+      "id": 2,
+      "title": "Total Requests (counters)",
+      "type": "stat",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 1 },
+      "datasource": "Prometheus",
+      "fieldConfig": {
+        "defaults": { "unit": "short", "color": { "mode": "palette-classic" } },
+        "overrides": []
+      },
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "orientation": "auto", "textMode": "auto", "colorMode": "background" },
+      "targets": [
+        { "expr": "sum(grpc_requests_total{service=\"java\",status=\"ok\"})", "legendFormat": "Java OK",    "refId": "A" },
+        { "expr": "sum(grpc_requests_total{service=\"java\",status=\"error\"})", "legendFormat": "Java ERR", "refId": "B" },
+        { "expr": "sum(grpc_requests_total{service=\"go\",status=\"ok\"})",   "legendFormat": "Go OK",      "refId": "C" },
+        { "expr": "sum(grpc_requests_total{service=\"go\",status=\"error\"})",   "legendFormat": "Go ERR",  "refId": "D" }
+      ]
+    },
+
+    { "collapsed": false, "gridPos": { "h": 1, "w": 24, "x": 0, "y": 9 },
+      "id": 101, "title": "⏱ Latency", "type": "row" },
+
+    {
+      "id": 3,
+      "title": "Java – Latency Percentiles",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 10 },
+      "datasource": "Prometheus",
+      "fieldConfig": { "defaults": { "unit": "s", "custom": { "lineWidth": 2 } }, "overrides": [] },
+      "options": { "legend": { "displayMode": "list", "placement": "bottom" }, "tooltip": { "mode": "multi" } },
+      "targets": [
+        { "expr": "histogram_quantile(0.50, sum(rate(grpc_request_duration_seconds_bucket{service=\"java\"}[30s])) by (le))", "legendFormat": "p50", "refId": "A" },
+        { "expr": "histogram_quantile(0.95, sum(rate(grpc_request_duration_seconds_bucket{service=\"java\"}[30s])) by (le))", "legendFormat": "p95", "refId": "B" },
+        { "expr": "histogram_quantile(0.99, sum(rate(grpc_request_duration_seconds_bucket{service=\"java\"}[30s])) by (le))", "legendFormat": "p99", "refId": "C" }
+      ]
+    },
+
+    {
+      "id": 4,
+      "title": "Go – Latency Percentiles",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 10 },
+      "datasource": "Prometheus",
+      "fieldConfig": { "defaults": { "unit": "s", "custom": { "lineWidth": 2 } }, "overrides": [] },
+      "options": { "legend": { "displayMode": "list", "placement": "bottom" }, "tooltip": { "mode": "multi" } },
+      "targets": [
+        { "expr": "histogram_quantile(0.50, sum(rate(grpc_request_duration_seconds_bucket{service=\"go\"}[30s])) by (le))", "legendFormat": "p50", "refId": "A" },
+        { "expr": "histogram_quantile(0.95, sum(rate(grpc_request_duration_seconds_bucket{service=\"go\"}[30s])) by (le))", "legendFormat": "p95", "refId": "B" },
+        { "expr": "histogram_quantile(0.99, sum(rate(grpc_request_duration_seconds_bucket{service=\"go\"}[30s])) by (le))", "legendFormat": "p99", "refId": "C" }
+      ]
+    },
+
+    {
+      "id": 5,
+      "title": "p95 Latency – Java vs Go (comparison)",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 18 },
+      "datasource": "Prometheus",
+      "fieldConfig": {
+        "defaults": { "unit": "s", "custom": { "lineWidth": 2 } },
+        "overrides": [
+          { "matcher": { "id": "byName", "options": "Java p95" },
+            "properties": [{ "id": "color", "value": { "fixedColor": "#F2CC0C", "mode": "fixed" } }] },
+          { "matcher": { "id": "byName", "options": "Go p95" },
+            "properties": [{ "id": "color", "value": { "fixedColor": "#73BF69", "mode": "fixed" } }] }
+        ]
+      },
+      "options": { "legend": { "displayMode": "list", "placement": "bottom" }, "tooltip": { "mode": "multi" } },
+      "targets": [
+        { "expr": "histogram_quantile(0.95, sum(rate(grpc_request_duration_seconds_bucket{service=\"java\"}[30s])) by (le))", "legendFormat": "Java p95", "refId": "A" },
+        { "expr": "histogram_quantile(0.95, sum(rate(grpc_request_duration_seconds_bucket{service=\"go\"}[30s])) by (le))",   "legendFormat": "Go p95",   "refId": "B" }
+      ]
+    },
+
+    { "collapsed": false, "gridPos": { "h": 1, "w": 24, "x": 0, "y": 26 },
+      "id": 102, "title": "❌ Error Rate", "type": "row" },
+
+    {
+      "id": 6,
+      "title": "Error Rate – Java vs Go",
+      "type": "timeseries",
+      "gridPos": { "h": 7, "w": 24, "x": 0, "y": 27 },
+      "datasource": "Prometheus",
+      "fieldConfig": { "defaults": { "unit": "percentunit", "custom": { "lineWidth": 2 } }, "overrides": [] },
+      "options": { "legend": { "displayMode": "list", "placement": "bottom" }, "tooltip": { "mode": "multi" } },
+      "targets": [
+        {
+          "expr": "sum(rate(grpc_requests_total{service=\"java\",status=\"error\"}[30s])) / sum(rate(grpc_requests_total{service=\"java\"}[30s]))",
+          "legendFormat": "Java error %", "refId": "A"
+        },
+        {
+          "expr": "sum(rate(grpc_requests_total{service=\"go\",status=\"error\"}[30s])) / sum(rate(grpc_requests_total{service=\"go\"}[30s]))",
+          "legendFormat": "Go error %", "refId": "B"
+        }
+      ]
+    },
+
+    { "collapsed": false, "gridPos": { "h": 1, "w": 24, "x": 0, "y": 34 },
+      "id": 103, "title": "☕ JVM (Java Service)", "type": "row" },
+
+    {
+      "id": 7,
+      "title": "JVM Heap Used",
+      "type": "timeseries",
+      "gridPos": { "h": 7, "w": 12, "x": 0, "y": 35 },
+      "datasource": "Prometheus",
+      "fieldConfig": { "defaults": { "unit": "bytes", "custom": { "lineWidth": 2 } }, "overrides": [] },
+      "options": { "legend": { "displayMode": "list", "placement": "bottom" }, "tooltip": { "mode": "multi" } },
+      "targets": [
+        { "expr": "sum(jvm_memory_bytes_used{job=\"java-service\",area=\"heap\"})", "legendFormat": "Heap Used", "refId": "A" },
+        { "expr": "sum(jvm_memory_bytes_max{job=\"java-service\",area=\"heap\"})",  "legendFormat": "Heap Max",  "refId": "B" }
+      ]
+    },
+
+    {
+      "id": 8,
+      "title": "JVM GC Pause Rate",
+      "type": "timeseries",
+      "gridPos": { "h": 7, "w": 12, "x": 12, "y": 35 },
+      "datasource": "Prometheus",
+      "fieldConfig": { "defaults": { "unit": "s", "custom": { "lineWidth": 2 } }, "overrides": [] },
+      "options": { "legend": { "displayMode": "list", "placement": "bottom" }, "tooltip": { "mode": "multi" } },
+      "targets": [
+        { "expr": "rate(jvm_gc_collection_seconds_sum{job=\"java-service\"}[30s])", "legendFormat": "GC {{gc}}", "refId": "A" }
+      ]
+    },
+
+    { "collapsed": false, "gridPos": { "h": 1, "w": 24, "x": 0, "y": 42 },
+      "id": 104, "title": "🐹 Go Runtime", "type": "row" },
+
+    {
+      "id": 9,
+      "title": "Go Goroutines",
+      "type": "timeseries",
+      "gridPos": { "h": 7, "w": 12, "x": 0, "y": 43 },
+      "datasource": "Prometheus",
+      "fieldConfig": { "defaults": { "unit": "short", "custom": { "lineWidth": 2 } }, "overrides": [] },
+      "options": { "legend": { "displayMode": "list", "placement": "bottom" } },
+      "targets": [
+        { "expr": "go_goroutines{job=\"go-service\"}", "legendFormat": "Goroutines", "refId": "A" }
+      ]
+    },
+
+    {
+      "id": 10,
+      "title": "Go Heap Alloc",
+      "type": "timeseries",
+      "gridPos": { "h": 7, "w": 12, "x": 12, "y": 43 },
+      "datasource": "Prometheus",
+      "fieldConfig": { "defaults": { "unit": "bytes", "custom": { "lineWidth": 2 } }, "overrides": [] },
+      "options": { "legend": { "displayMode": "list", "placement": "bottom" } },
+      "targets": [
+        { "expr": "go_memstats_alloc_bytes{job=\"go-service\"}", "legendFormat": "Alloc", "refId": "A" },
+        { "expr": "go_memstats_sys_bytes{job=\"go-service\"}",   "legendFormat": "Sys",   "refId": "B" }
+      ]
+    },
+
+    { "collapsed": false, "gridPos": { "h": 1, "w": 24, "x": 0, "y": 51 },
+      "id": 105, "title": "🖥 CPU — Cores in Use (max 8, same scale as docker stats)", "type": "row" },
+
+    {
+      "id": 11,
+      "title": "Java – CPU Cores in Use",
+      "type": "timeseries",
+      "gridPos": { "h": 7, "w": 12, "x": 0, "y": 52 },
+      "datasource": "Prometheus",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 2,
+          "custom": { "lineWidth": 2 },
+          "min": 0,
+          "max": 8,
+          "displayName": "Cores"
+        },
+        "overrides": [
+          { "matcher": { "id": "byName", "options": "Cores" },
+            "properties": [{ "id": "color", "value": { "fixedColor": "#F2CC0C", "mode": "fixed" } }] }
+        ]
+      },
+      "options": { "legend": { "displayMode": "list", "placement": "bottom" }, "tooltip": { "mode": "multi" } },
+      "targets": [
+        {
+          "expr": "rate(process_cpu_seconds_total{job=\"java-service\"}[30s])",
+          "legendFormat": "Cores",
+          "refId": "A"
+        }
+      ]
+    },
+
+    {
+      "id": 12,
+      "title": "Go – CPU Cores in Use",
+      "type": "timeseries",
+      "gridPos": { "h": 7, "w": 12, "x": 12, "y": 52 },
+      "datasource": "Prometheus",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 2,
+          "custom": { "lineWidth": 2 },
+          "min": 0,
+          "max": 8,
+          "displayName": "Cores"
+        },
+        "overrides": [
+          { "matcher": { "id": "byName", "options": "Cores" },
+            "properties": [{ "id": "color", "value": { "fixedColor": "#73BF69", "mode": "fixed" } }] }
+        ]
+      },
+      "options": { "legend": { "displayMode": "list", "placement": "bottom" }, "tooltip": { "mode": "multi" } },
+      "targets": [
+        {
+          "expr": "rate(process_cpu_seconds_total{job=\"go-service\"}[30s])",
+          "legendFormat": "Cores",
+          "refId": "A"
+        }
+      ]
+    },
+
+    {
+      "id": 13,
+      "title": "CPU Cores in Use – Java vs Go  (docker stats shows this × 100%)",
+      "type": "timeseries",
+      "gridPos": { "h": 7, "w": 24, "x": 0, "y": 59 },
+      "datasource": "Prometheus",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 2,
+          "custom": { "lineWidth": 2 },
+          "min": 0,
+          "max": 8
+        },
+        "overrides": [
+          { "matcher": { "id": "byName", "options": "Java" },
+            "properties": [{ "id": "color", "value": { "fixedColor": "#F2CC0C", "mode": "fixed" } }] },
+          { "matcher": { "id": "byName", "options": "Go" },
+            "properties": [{ "id": "color", "value": { "fixedColor": "#73BF69", "mode": "fixed" } }] }
+        ]
+      },
+      "options": { "legend": { "displayMode": "list", "placement": "bottom" }, "tooltip": { "mode": "multi" } },
+      "targets": [
+        {
+          "expr": "rate(process_cpu_seconds_total{job=\"java-service\"}[30s])",
+          "legendFormat": "Java",
+          "refId": "A"
+        },
+        {
+          "expr": "rate(process_cpu_seconds_total{job=\"go-service\"}[30s])",
+          "legendFormat": "Go",
+          "refId": "B"
+        }
+      ]
+    }
+
+  ],
+  "refresh": "5s",
+  "schemaVersion": 38,
+  "style": "dark",
+  "tags": ["grpc", "benchmark", "java", "go"],
+  "templating": { "list": [] },
+  "time": { "from": "now-5m", "to": "now" },
+  "timepicker": {},
+  "timezone": "browser",
+  "title": "Java gRPC vs Go gRPC – KV Benchmark",
+  "uid": "kv-benchmark-v1",
+  "version": 1
+}

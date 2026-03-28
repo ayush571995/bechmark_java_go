@@ -1,0 +1,198 @@
+x-restart: &restart
+  restart: unless-stopped
+
+x-redis: &redis-base
+  image: redis:7.2-alpine
+  command: redis-server --maxmemory 256mb --maxmemory-policy allkeys-lru
+  healthcheck:
+    test: ["CMD", "redis-cli", "ping"]
+    interval: 5s
+    timeout: 3s
+    retries: 10
+
+services:
+
+  # ── Redis for Java service ─────────────────────────────────────────────────
+
+  redis-java:
+    <<: [*restart, *redis-base]
+    ports:
+      - "6379:6379"
+
+  redis-init-java:
+    image: python:3.11-slim
+    depends_on:
+      redis-java:
+        condition: service_healthy
+    volumes:
+      - ./redis-init/seed.py:/seed.py:ro
+    entrypoint: ["sh", "-c", "pip install redis --quiet && python /seed.py"]
+    environment:
+      - PYTHONUNBUFFERED=1
+      - REDIS_HOST=redis-java
+
+  # ── Redis for Go service ───────────────────────────────────────────────────
+
+  redis-go:
+    <<: [*restart, *redis-base]
+    ports:
+      - "6380:6379"
+
+  redis-init-go:
+    image: python:3.11-slim
+    depends_on:
+      redis-go:
+        condition: service_healthy
+    volumes:
+      - ./redis-init/seed.py:/seed.py:ro
+    entrypoint: ["sh", "-c", "pip install redis --quiet && python /seed.py"]
+    environment:
+      - PYTHONUNBUFFERED=1
+      - REDIS_HOST=redis-go
+
+  # ── Java gRPC service ──────────────────────────────────────────────────────
+
+  java-service:
+    <<: *restart
+    build:
+      context: .
+      dockerfile: java-service/Dockerfile
+    ports:
+      - "50051:50051"
+      - "8080:8080"
+    environment:
+      REDIS_HOST: redis-java
+      REDIS_PORT: "6379"
+      GRPC_PORT: "50051"
+      METRICS_PORT: "8080"
+    deploy:
+      resources:
+        limits:
+          cpus: "8.0"
+          memory: 20G
+        reservations:
+          cpus: "4.0"
+          memory: 16G
+    depends_on:
+      redis-java:
+        condition: service_healthy
+      redis-init-java:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8080/metrics | grep -q grpc_requests || exit 0"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+
+  # ── Go gRPC service ────────────────────────────────────────────────────────
+
+  go-service:
+    <<: *restart
+    build:
+      context: .
+      dockerfile: go-service/Dockerfile
+    ports:
+      - "50052:50052"
+      - "8081:8081"
+    environment:
+      REDIS_HOST: redis-go
+      REDIS_PORT: "6379"
+      GRPC_PORT: "50052"
+      METRICS_PORT: "8081"
+    deploy:
+      resources:
+        limits:
+          cpus: "8.0"
+          memory: 20G
+        reservations:
+          cpus: "4.0"
+          memory: 16G
+    depends_on:
+      redis-go:
+        condition: service_healthy
+      redis-init-go:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8081/metrics | grep -q go_goroutines || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  # ── k6 load tests ─────────────────────────────────────────────────────────
+  #
+  #   Run both simultaneously:  make test
+  #   Run Java only:            make test-java
+  #   Run Go only:              make test-go
+
+  k6-java:
+    image: grafana/k6:latest
+    profiles: ["java", "benchmark"]
+    volumes:
+      - ./k6:/scripts
+      - ./proto:/proto
+    environment:
+      K6_PROMETHEUS_RW_SERVER_URL: http://prometheus:9090/api/v1/write
+      K6_PROMETHEUS_RW_TREND_AS_NATIVE_HISTOGRAM: "true"
+    command: run --out experimental-prometheus-rw /scripts/java.js
+    depends_on:
+      - java-service
+      - prometheus
+
+  k6-go:
+    image: grafana/k6:latest
+    profiles: ["go", "benchmark"]
+    volumes:
+      - ./k6:/scripts
+      - ./proto:/proto
+    environment:
+      K6_PROMETHEUS_RW_SERVER_URL: http://prometheus:9090/api/v1/write
+      K6_PROMETHEUS_RW_TREND_AS_NATIVE_HISTOGRAM: "true"
+    command: run --out experimental-prometheus-rw /scripts/go.js
+    depends_on:
+      - go-service
+      - prometheus
+
+  # ── Prometheus ─────────────────────────────────────────────────────────────
+
+  prometheus:
+    <<: *restart
+    image: prom/prometheus:v2.51.1
+    volumes:
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus-data:/prometheus
+    ports:
+      - "9090:9090"
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.retention.time=2h
+      - --web.enable-lifecycle
+      - --web.enable-admin-api
+      - --web.enable-remote-write-receiver
+    depends_on:
+      - java-service
+      - go-service
+
+  # ── Grafana ────────────────────────────────────────────────────────────────
+
+  grafana:
+    <<: *restart
+    image: grafana/grafana:10.4.1
+    ports:
+      - "3000:3000"
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: admin
+      GF_AUTH_ANONYMOUS_ENABLED: "true"
+      GF_AUTH_ANONYMOUS_ORG_ROLE: Viewer
+      GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH: /var/lib/grafana/dashboards/kv-benchmark.json
+      GF_INSTALL_PLUGINS: grafana-k6-app
+    volumes:
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - grafana-data:/var/lib/grafana
+    depends_on:
+      - prometheus
+
+volumes:
+  prometheus-data:
+  grafana-data:
